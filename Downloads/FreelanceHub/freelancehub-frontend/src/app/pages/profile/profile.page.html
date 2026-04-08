@@ -1,0 +1,83 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Mon Profil</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card *ngIf="user">
+    <ion-card-header>
+      <ion-card-title>{{ user.name }}</ion-card-title>
+
+      <ion-card-subtitle>
+        {{ getRoleLabel() }} •
+
+        <ion-badge color="success" *ngIf="user.status === 'active'">
+          Actif
+        </ion-badge>
+
+        <ion-badge color="warning" *ngIf="user.status === 'pending'">
+          En attente
+        </ion-badge>
+
+        <ion-badge color="danger" *ngIf="user.status === 'rejected'">
+          Rejeté
+        </ion-badge>
+      </ion-card-subtitle>
+    </ion-card-header>
+
+    <ion-card-content>
+      <p><strong>Email :</strong> {{ user.email }}</p>
+
+      <!-- ================= FREELANCER ONLY ================= -->
+      <div *ngIf="user.role === 'freelancer'">
+        <ion-textarea
+          [(ngModel)]="bio"
+          label="Bio"
+          placeholder="Décris ton profil..."
+        ></ion-textarea>
+
+        <ion-label>Compétences</ion-label>
+        <ion-input
+          [(ngModel)]="skills"
+          placeholder="Python, Angular, IA..."
+        ></ion-input>
+
+        <ion-button expand="block" color="medium" (click)="uploadCV()">
+          Upload CV
+        </ion-button>
+      </div>
+
+      <!-- ================= ADMIN VIEW ================= -->
+      <div *ngIf="user.role === 'admin'">
+        <p>Accès administrateur complet</p>
+        <p>Vous pouvez valider les utilisateurs, gigs et produits.</p>
+      </div>
+
+      <!-- ================= CLIENT VIEW ================= -->
+      <div *ngIf="user.role === 'client'">
+        <p>Vous pouvez publier des offres et contacter des freelancers.</p>
+      </div>
+
+      <ion-button
+        expand="block"
+        (click)="saveProfile()"
+        class="ion-margin-top"
+        *ngIf="user.role === 'freelancer'"
+      >
+        Sauvegarder
+      </ion-button>
+
+      <p *ngIf="message" style="margin-top: 10px">{{ message }}</p>
+    </ion-card-content>
+
+    <ion-button
+      expand="block"
+      color="danger"
+      (click)="logout()"
+      class="ion-margin-top"
+    >
+      Se déconnecter
+    </ion-button>
+  </ion-card>
+</ion-content>

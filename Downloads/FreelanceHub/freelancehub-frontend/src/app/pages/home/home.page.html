@@ -1,0 +1,104 @@
+<!-- home.page.html -->
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>FreelanceHub</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="home-page">
+  <div class="hero">
+    <ion-badge color="light" class="hero-badge">
+      Plateforme freelance + store numérique
+    </ion-badge>
+    <h1>Construis, propose et vends ton talent</h1>
+    <p>
+      FreelanceHub connecte freelances, clients et administrateurs dans une
+      seule application hybride moderne.
+    </p>
+
+    <!-- Hide if user is logged in -->
+    <div class="hero-actions" *ngIf="!isLoggedIn">
+      <ion-button expand="block" routerLink="/login">Se connecter</ion-button>
+      <ion-button expand="block" fill="outline" routerLink="/register">
+        Créer un compte
+      </ion-button>
+    </div>
+  </div>
+
+  <ion-grid class="section-grid">
+    <ion-row>
+      <ion-col size="12" size-md="4">
+        <ion-card class="feature-card">
+          <ion-card-header>
+            <ion-card-title>Gigs</ion-card-title>
+            <ion-card-subtitle>Services proposés</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            Publie ou explore des missions, avec validation admin avant
+            publication.
+            <ion-button expand="block" fill="clear" routerLink="/tabs/gigs">
+              Voir les Gigs
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+
+      <ion-col size="12" size-md="4">
+        <ion-card class="feature-card">
+          <ion-card-header>
+            <ion-card-title>Store</ion-card-title>
+            <ion-card-subtitle>Produits numériques</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            Achète des starter kits, modèles IA, templates et autres ressources
+            digitales.
+            <ion-button
+              expand="block"
+              fill="clear"
+              color="tertiary"
+              routerLink="/tabs/store"
+            >
+              Visiter le Store
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+
+      <ion-col size="12" size-md="4">
+        <ion-card class="feature-card">
+          <ion-card-header>
+            <ion-card-title>Messagerie</ion-card-title>
+            <ion-card-subtitle>Échanges rapides</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            Discute directement avec les freelances et les clients pour avancer
+            plus vite.
+            <ion-button
+              expand="block"
+              fill="clear"
+              color="success"
+              routerLink="/tabs/messages"
+            >
+              Ouvrir les Messages
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
+
+  <ion-card class="about-card">
+    <ion-card-header>
+      <ion-card-title>Pourquoi FreelanceHub ?</ion-card-title>
+      <ion-card-subtitle>Une seule app pour tout gérer</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <ul>
+        <li>Authentification avec rôles : client, freelancer, admin</li>
+        <li>Validation des profils, gigs et produits par l’admin</li>
+        <li>Store intégré pour vendre des produits numériques</li>
+        <li>Interface pensée pour Ionic + Angular</li>
+      </ul>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

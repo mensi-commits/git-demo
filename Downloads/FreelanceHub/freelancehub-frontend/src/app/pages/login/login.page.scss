@@ -1,0 +1,108 @@
+.login-page {
+  --ion-background-color: transparent !important;
+  --ion-text-color: #1e2937;
+  --ion-card-background: transparent;
+
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Strong background */
+.hero-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, 
+    #c4d0ff 0%, 
+    #e0bbff 40%, 
+    #f9c4ff 80%, 
+    #e0f2fe 100%);
+  z-index: -1;
+}
+
+.login-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.custom-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 32px;
+  box-shadow: 0 30px 90px rgba(99, 102, 241, 0.25);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(30px);
+  border: 1px solid rgba(255,255,255, 0.7);
+  overflow: hidden;
+}
+
+.custom-header {
+  background: linear-gradient(90deg, #6366f1, #a855f7, #db2777);
+  color: white;
+  text-align: center;
+  padding: 55px 30px 45px;
+}
+
+.logo {
+  font-size: 3rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -2.5px;
+  background: linear-gradient(90deg, #ffffff, #ddd6fe);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.slogan {
+  margin-top: 12px;
+  font-size: 1.1rem;
+  opacity: 0.92;
+  font-weight: 400;
+}
+
+.custom-content {
+  padding: 40px 30px 50px;
+}
+
+.custom-input {
+  margin-bottom: 20px;
+  --background: #ffffff;
+  --border-radius: 18px;
+  --border-color: #cbd5e1;
+  --placeholder-color: #94a3b8;
+  --padding-start: 20px;
+  --padding-top: 16px;
+  --padding-bottom: 16px;
+}
+
+.custom-input::part(label) {
+  color: #334155;
+  font-weight: 600;
+}
+
+.signin-btn {
+  height: 58px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-radius: 18px;
+  margin: 10px 0 8px;
+  --background: linear-gradient(to right, #6366f1, #a855f7);
+  box-shadow: 0 12px 35px rgba(99, 102, 241, 0.35);
+}
+
+.create-account-btn {
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.create-account-btn:hover {
+  color: #6366f1;
+}

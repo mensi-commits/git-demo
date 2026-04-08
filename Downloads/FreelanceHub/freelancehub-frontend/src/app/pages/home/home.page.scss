@@ -1,0 +1,66 @@
+.home-page {
+  --padding-top: 18px;
+  --padding-bottom: 24px;
+}
+
+.hero {
+  padding: 20px 16px 10px;
+  text-align: center;
+}
+
+.hero-badge {
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.hero p {
+  margin: 12px auto 0;
+  max-width: 640px;
+  color: var(--ion-color-medium-shade);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  margin: 22px auto 0;
+  max-width: 420px;
+  display: grid;
+  gap: 10px;
+}
+
+.section-grid {
+  margin-top: 10px;
+}
+
+.feature-card,
+.about-card {
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.feature-card ion-card-title,
+.about-card ion-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.feature-card ion-card-content {
+  line-height: 1.6;
+}
+
+.about-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.about-card li {
+  margin-bottom: 8px;
+}

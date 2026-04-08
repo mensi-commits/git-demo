@@ -1,0 +1,136 @@
+<ion-header>
+  <ion-toolbar color="danger">
+    <ion-title>Admin Dashboard</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Tableau de modération</ion-card-title>
+      <ion-card-subtitle
+        >Validation des freelances, gigs et produits</ion-card-subtitle
+      >
+    </ion-card-header>
+    <ion-card-content>
+      <p *ngIf="message">{{ message }}</p>
+
+      <ion-button expand="block" color="primary" (click)="loadPending()">
+        Actualiser
+      </ion-button>
+
+      <div *ngIf="loading" class="ion-text-center" style="margin-top: 16px">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Freelancers en attente</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-list *ngIf="pendingUsers.length > 0; else noUsers">
+        <ion-item *ngFor="let user of pendingUsers">
+          <ion-label>
+            <h2>{{ user.name }}</h2>
+            <p>{{ user.email }}</p>
+            <p>Rôle : {{ user.role }} | Statut : {{ user.status }}</p>
+          </ion-label>
+
+          <ion-button
+            color="success"
+            size="small"
+            (click)="approveUser(user._id)"
+          >
+            Valider
+          </ion-button>
+          <ion-button
+            color="danger"
+            size="small"
+            (click)="rejectUser(user._id)"
+          >
+            Rejeter
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <ng-template #noUsers>
+        <p>Aucun freelancer en attente.</p>
+      </ng-template>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Gigs en attente</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-list *ngIf="pendingGigs.length > 0; else noGigs">
+        <ion-item *ngFor="let gig of pendingGigs">
+          <ion-label>
+            <h2>{{ gig.title }}</h2>
+            <p>{{ gig.description }}</p>
+            <p>Prix : {{ gig.price }} TND | Statut : {{ gig.status }}</p>
+          </ion-label>
+
+          <ion-button
+            color="success"
+            size="small"
+            (click)="approveGig(gig._id)"
+          >
+            Valider
+          </ion-button>
+          <ion-button color="danger" size="small" (click)="rejectGig(gig._id)">
+            Rejeter
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <ng-template #noGigs>
+        <p>Aucun gig en attente.</p>
+      </ng-template>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Produits en attente</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <ion-list *ngIf="pendingProducts.length > 0; else noProducts">
+        <ion-item *ngFor="let product of pendingProducts">
+          <ion-label>
+            <h2>{{ product.title }}</h2>
+            <p>{{ product.description }}</p>
+            <p>
+              Prix : {{ product.price }} TND | Statut : {{ product.status }}
+            </p>
+          </ion-label>
+
+          <ion-button
+            color="success"
+            size="small"
+            (click)="approveProduct(product._id)"
+          >
+            Valider
+          </ion-button>
+          <ion-button
+            color="danger"
+            size="small"
+            (click)="rejectProduct(product._id)"
+          >
+            Rejeter
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <ng-template #noProducts>
+        <p>Aucun produit en attente.</p>
+      </ng-template>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

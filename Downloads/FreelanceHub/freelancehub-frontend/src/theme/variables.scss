@@ -1,0 +1,47 @@
+// For information on how to create your own theme, please refer to:
+// https://ionicframework.com/docs/theming/
+/* Instagram-inspired Global Theme - Light Mode */
+
+:root {
+  /* Primary Instagram Colors */
+  --ion-color-primary: #e1306c;           /* Instagram pink/red */
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-shade: #c42a5f;
+  --ion-color-primary-tint: #e53e78;
+
+  --ion-color-secondary: #405de6;         /* Instagram blue */
+  --ion-color-secondary-contrast: #ffffff;
+
+  /* Background & Text */
+  --ion-background-color: #f8f8f8;
+  --ion-text-color: #262626;
+
+  /* Card & Inputs */
+  --ion-card-background: #ffffff;
+  --ion-item-background: #ffffff;
+  --ion-input-background: #ffffff;
+
+  /* Buttons */
+  --ion-button-color: #ffffff;
+
+  /* Gradients (used in headers and buttons) */
+  --instagram-gradient: linear-gradient(135deg, #f56040, #c13584, #833ab4, #405de6);
+}
+
+/* Make the whole app use light mode */
+ion-app, ion-content {
+  --background: #f8f8f8;
+}
+
+/* Global button style - Instagram feel */
+ion-button {
+  --border-radius: 10px;
+  font-weight: 600;
+}
+
+/* Optional: Make tabs and headers more Instagram-like */
+ion-toolbar {
+  --background: #ffffff;
+  --color: #262626;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}

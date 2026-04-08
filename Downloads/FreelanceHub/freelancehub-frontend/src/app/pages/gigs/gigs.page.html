@@ -1,0 +1,17 @@
+<ion-header
+  ><ion-toolbar color="primary"
+    ><ion-title>Gigs</ion-title></ion-toolbar
+  ></ion-header
+>
+<ion-content class="ion-padding">
+  <ion-card *ngFor="let gig of gigs">
+    <ion-card-header>
+      <ion-card-title>{{ gig.title }}</ion-card-title>
+      <ion-card-subtitle>{{ gig.price }} TND</ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <p>{{ gig.description }}</p>
+      <ion-button fill="outline" size="small">Postuler</ion-button>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

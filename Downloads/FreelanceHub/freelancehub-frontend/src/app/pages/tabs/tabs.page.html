@@ -1,0 +1,28 @@
+<ion-tabs>
+  <ion-tab-bar slot="bottom">
+    <ion-tab-button tab="home">
+      <ion-icon [icon]="icons.home"></ion-icon>
+      <ion-label>Accueil</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="gigs">
+      <ion-icon [icon]="icons.gigs"></ion-icon>
+      <ion-label>Gigs</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="store">
+      <ion-icon [icon]="icons.store"></ion-icon>
+      <ion-label>Store</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="messages">
+      <ion-icon [icon]="icons.messages"></ion-icon>
+      <ion-label>Messages</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button (click)="goProfile()">
+      <ion-icon [icon]="isLoggedIn ? icons.profile : icons.login"></ion-icon>
+      <ion-label>{{ isLoggedIn ? 'Profil' : 'Connexion' }}</ion-label>
+    </ion-tab-button>
+  </ion-tab-bar>
+</ion-tabs>
