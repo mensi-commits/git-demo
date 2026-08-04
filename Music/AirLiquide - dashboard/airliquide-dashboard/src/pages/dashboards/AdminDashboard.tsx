@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     LayoutDashboard, Package, FlaskConical, Cog, Droplet, Warehouse,
     Truck, BarChart3, Users, Settings, Search, Bell, ChevronDown,
     Calendar, Download, ArrowRight, Box, CheckCircle2, HardHat,
-    Wind, Droplets, Cloud, Zap, HeartPulse, ShieldCheck, Shield, Fan, X,
+    Wind, Droplets, Cloud, Zap, HeartPulse, ShieldCheck, Shield, Fan, X, LogOut,
 } from "lucide-react";
+
 import {
     PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis,
     CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -595,15 +596,118 @@ function PartySidebar({ gasId, party, onParty, onOpenCalendar }: { gasId: string
     );
 }
 
+
 function Topbar({ onOpenCalendar }: { onOpenCalendar: () => void }) {
-    const user = JSON.parse(localStorage.getItem("user") || '{"fullName": "Admin", "role": "admin"}');
+    const navigate = useNavigate();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Fallback to Maroua Guesmi if no user is found in localStorage
+    const user = JSON.parse(localStorage.getItem("user") || '{"fullName": "Maroua Guesmi", "role": "admin"}');
+
+    const parties = [
+        { label: "Admin Dashboard", role: "admin", icon: LayoutDashboard, path: "/dashboard/admin" },
+        { label: "Logistics", role: "logistics", icon: Package, path: "/dashboard/logistics" },
+        { label: "Laboratory", role: "laboratory", icon: FlaskConical, path: "/dashboard/laboratory" },
+        { label: "Production", role: "production", icon: Cog, path: "/dashboard/production" },
+        { label: "Distribution", role: "distribution", icon: Truck, path: "/dashboard/distribution" },
+    ];
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleSwitchParty = (path: string) => {
+        setIsDropdownOpen(false);
+        navigate(path);
+    };
+
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8">
-            <div><h1 className="text-[26px] font-bold leading-none text-slate-900">Dashboard</h1><p className="mt-1.5 text-sm text-slate-500">Overview of today's operations</p></div>
+            <div>
+                <h1 className="text-[26px] font-bold leading-none text-slate-900">Dashboard</h1>
+                <p className="mt-1.5 text-sm text-slate-500">Overview of today's operations</p>
+            </div>
+
             <div className="flex items-center gap-4">
-                <div className="relative"><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search batch, material, order…" className="h-10 w-[320px] rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100" /></div>
-                <button onClick={onOpenCalendar} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"><Calendar size={16} className="text-blue-600" />System Calendar</button>
-                <div className="flex items-center gap-3 pl-2"><div className="grid h-10 w-10 place-items-center rounded-full bg-blue-100 text-blue-600"><Users size={18} /></div><div className="leading-tight"><div className="text-sm font-semibold text-slate-900">{user.fullName}</div><div className="text-xs text-slate-500 capitalize">{user.role}</div></div></div>
+                <div className="relative">
+                    <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Search batch, material, order…"
+                        className="h-10 w-[320px] rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    />
+                </div>
+
+                <button
+                    onClick={onOpenCalendar}
+                    className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                    <Calendar size={16} className="text-blue-600" />
+                    System Calendar
+                </button>
+
+                {/* User & Party Switcher Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                    <button
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                        <div className="grid h-10 w-10 place-items-center rounded-full bg-blue-100 text-blue-600">
+                            <Users size={18} />
+                        </div>
+                        <div className="leading-tight text-left">
+                            <div className="text-sm font-semibold text-slate-900">{user.fullName || "Maroua Guesmi"}</div>
+                            <div className="text-xs text-slate-500 capitalize">{user.role}</div>
+                        </div>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white shadow-lg py-2 z-50">
+                            <div className="px-4 py-2 border-b border-slate-100 mb-1">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Switch Department</p>
+                            </div>
+                            {parties.map((party) => {
+                                const Icon = party.icon;
+                                return (
+                                    <button
+                                        key={party.role}
+                                        onClick={() => handleSwitchParty(party.path)}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                    >
+                                        <Icon size={18} />
+                                        <span className="font-medium">{party.label}</span>
+                                        {user.role === party.role && (
+                                            <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+                                                Current
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                            <div className="border-t border-slate-100 mt-1 pt-1">
+                                <button
+                                    onClick={() => {
+                                        localStorage.clear();
+                                        navigate("/login");
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                    <LogOut size={18} />
+                                    <span className="font-medium">Log Out</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </header>
     );

@@ -97,7 +97,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardRedirect />} />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
       </Routes>
     </BrowserRouter>
   );
