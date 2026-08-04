@@ -5,6 +5,7 @@ import LogisticsDashboard from "./pages/dashboards/LogisticsDashboard";
 import LaboratoryDashboard from "./pages/dashboards/LaboratoryDashboard";
 import ProductionDashboard from "./pages/dashboards/ProductionDashboard";
 import DistributionDashboard from "./pages/dashboards/DistributionDashboard";
+import SystemCalendar from "./pages/SystemCalendar"; // <-- Added import
 
 // Protected route that checks both authentication AND role
 const ProtectedRoute = ({ allowedRoles, children }: { allowedRoles: string[], children: React.ReactNode }) => {
@@ -78,6 +79,16 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["admin", "distribution"]}>
               <DistributionDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* System Calendar Route (Accessible to all roles for traceability, or change to ["admin"] if restricted) */}
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "logistics", "laboratory", "production", "distribution"]}>
+              <SystemCalendar />
             </ProtectedRoute>
           }
         />

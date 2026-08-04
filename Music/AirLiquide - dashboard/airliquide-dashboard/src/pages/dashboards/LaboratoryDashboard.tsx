@@ -1,27 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    FlaskConical,
-    Hourglass,
-    CheckCircle2,
-    XCircle,
-    Clock,
-    Search,
-    Filter,
-    Download,
-    Plus,
-    Eye,
-    MoreVertical,
-    ChevronLeft,
-    ChevronRight,
-    Calendar,
-    X,
-    FileText,
-    User,
-    Beaker,
-    Droplets,
-    Thermometer,
-    Wind,
+    FlaskConical, Hourglass, CheckCircle2, XCircle, Clock, Search, Filter,
+    Download, Eye, ChevronLeft, ChevronRight, Calendar, X, FileText, User,
+    Beaker, Droplets, Truck, Package, Warehouse, AlertTriangle
 } from "lucide-react";
 
 export default function LaboratoryDashboard() {
@@ -32,8 +14,6 @@ export default function LaboratoryDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All Status");
-    const [typeFilter, setTypeFilter] = useState("All Types");
     const [activeTab, setActiveTab] = useState("All Samples");
 
     const itemsPerPage = 10;
@@ -46,34 +26,17 @@ export default function LaboratoryDashboard() {
         setIsLoading(true);
         const token = localStorage.getItem("token");
         try {
-            const res = await fetch("http://localhost:5000/api/batches?party=laboratory", {
+            const res = await fetch("http://localhost:5000/api/batches", {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
                 const data = await res.json();
-                // Transform batches to samples format
-                const samplesData = data.map((batch, index) => ({
-                    id: `SMP-2505-${String(18 - index).padStart(4, "0")}`,
-                    batchId: batch.lotId,
-                    material: batch.gasId,
-                    type: "Gas",
-                    receivedDate: new Date(batch.date).toLocaleString(),
-                    status: batch.status === "pending" ? "Pending" :
-                        batch.status === "testing" ? "In Analysis" :
-                            batch.status === "approved" || batch.status === "ready" ? "Approved" : "Rejected",
-                    progress: batch.status === "pending" ? 0 :
-                        batch.status === "testing" ? Math.floor(Math.random() * 60 + 40) : 100,
-                    supplier: batch.supplier,
-                    quantity: batch.quantity,
-                    analyst: "Fatima Zahra",
-                    tests: {
-                        purity: batch.labResults?.purity || null,
-                        moisture: batch.labResults?.h2o || null,
-                        oilContent: batch.labResults?.co || null,
-                        impurities: batch.labResults?.co2 || null,
-                    }
-                }));
-                setSamples(samplesData);
+                // Filter for batches currently in a Lab Quarantine stage or Rejected
+                const labBatches = data.filter(b =>
+                    ["rm_lab", "fp_lab", "citerne_lab"].includes(b.party) ||
+                    b.status === "rejected"
+                );
+                setSamples(labBatches);
             } else if (res.status === 401) {
                 localStorage.clear();
                 navigate("/login");
@@ -90,54 +53,77 @@ export default function LaboratoryDashboard() {
         setShowDetailsPanel(true);
     };
 
-    const handleApprove = async (sampleId) => {
+    const handleApprove = async (sample) => {
         const token = localStorage.getItem("token");
-        const batch = samples.find(s => s.id === sampleId);
-        if (batch) {
-            await fetch(`http://localhost:5000/api/batches/${batch.batchId}/lab`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    purity: 99.5 + Math.random() * 0.4,
-                    co: Math.random() * 3,
-                    co2: Math.random() * 200,
-                    h2o: Math.random() * 50,
-                }),
-            });
-            fetchSamples();
-        }
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+        // 1. Submit Lab Results (Mocking Ph. Eur. standard passing results)
+        await fetch(`http://localhost:5000/api/batches/${sample.lotId}/lab`, {
+            method: "PATCH", headers,
+            body: JSON.stringify({
+                purity: 99.5 + Math.random() * 0.4,
+                co: Math.random() * 3,
+                co2: Math.random() * 200,
+                h2o: Math.random() * 50,
+            }),
+        });
+
+        // 2. Move to next party based on the type of batch
+        let nextParty = "production"; // Default for RM
+        if (sample.party === "fp_lab") nextParty = "distribution";
+        if (sample.party === "citerne_lab") nextParty = "citerne_distribution";
+
+        await fetch(`http://localhost:5000/api/batches/${sample.lotId}/move`, {
+            method: "PATCH", headers,
+            body: JSON.stringify({ nextParty, newStatus: "approved" }),
+        });
+
+        fetchSamples();
+        setShowDetailsPanel(false);
     };
 
-    const handleReject = async (sampleId) => {
+    const handleReject = async (sample) => {
         const token = localStorage.getItem("token");
-        const batch = samples.find(s => s.id === sampleId);
-        if (batch) {
-            await fetch(`http://localhost:5000/api/batches/${batch.batchId}/reject`, {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            fetchSamples();
-        }
+        await fetch(`http://localhost:5000/api/batches/${sample.lotId}/reject`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        });
+        fetchSamples();
+        setShowDetailsPanel(false);
+    };
+
+    const getTypeLabel = (party) => {
+        if (party === "rm_lab") return "Raw Material (RM)";
+        if (party === "fp_lab") return "Final Product (FP)";
+        if (party === "citerne_lab") return "O₂ Citerne";
+        return "Unknown";
+    };
+
+    const getTypeIcon = (party) => {
+        if (party === "rm_lab") return <Package className="h-4 w-4 text-blue-600" />;
+        if (party === "fp_lab") return <Droplets className="h-4 w-4 text-purple-600" />;
+        if (party === "citerne_lab") return <Warehouse className="h-4 w-4 text-orange-600" />;
+        return <FlaskConical className="h-4 w-4 text-slate-600" />;
+    };
+
+    const getStatusBadge = (sample) => {
+        if (sample.status === "rejected") return { text: "Rejected", class: "bg-red-50 text-red-700 ring-red-200" };
+        if (sample.status === "approved" || sample.status === "ready") return { text: "Conforme", class: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+        return { text: "In Quarantine", class: "bg-amber-50 text-amber-700 ring-amber-200" };
     };
 
     const filteredSamples = samples.filter((sample) => {
         const matchesSearch =
-            sample.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            sample.batchId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            sample.material.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === "All Status" || sample.status === statusFilter;
-        const matchesType = typeFilter === "All Types" || sample.type === typeFilter;
-        const matchesTab = activeTab === "All Samples" ||
-            (activeTab === "Pending" && sample.status === "Pending") ||
-            (activeTab === "In Analysis" && sample.status === "In Analysis") ||
-            (activeTab === "Approved" && sample.status === "Approved") ||
-            (activeTab === "Rejected" && sample.status === "Rejected") ||
-            (activeTab === "Completed" && sample.progress === 100);
+            sample.lotId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            sample.gasId.toLowerCase().includes(searchQuery.toLowerCase());
 
-        return matchesSearch && matchesStatus && matchesType && matchesTab;
+        const matchesTab = activeTab === "All Samples" ||
+            (activeTab === "RM Quarantine" && sample.party === "rm_lab") ||
+            (activeTab === "FP Quarantine" && sample.party === "fp_lab") ||
+            (activeTab === "Citerne QC" && sample.party === "citerne_lab") ||
+            (activeTab === "Rejected" && sample.status === "rejected");
+
+        return matchesSearch && matchesTab;
     });
 
     const totalPages = Math.ceil(filteredSamples.length / itemsPerPage);
@@ -147,11 +133,10 @@ export default function LaboratoryDashboard() {
     );
 
     const kpis = {
-        received: samples.length,
-        pending: samples.filter(s => s.status === "Pending").length,
-        approved: samples.filter(s => s.status === "Approved").length,
-        rejected: samples.filter(s => s.status === "Rejected").length,
-        avgTime: 45,
+        rmQuarantine: samples.filter(s => s.party === "rm_lab" && s.status !== "rejected").length,
+        fpQuarantine: samples.filter(s => s.party === "fp_lab" && s.status !== "rejected").length,
+        citerneQC: samples.filter(s => s.party === "citerne_lab" && s.status !== "rejected").length,
+        rejected: samples.filter(s => s.status === "rejected").length,
     };
 
     if (isLoading) {
@@ -166,7 +151,7 @@ export default function LaboratoryDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50 pb-16">
             {/* Header */}
             <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-40">
                 <div className="flex items-center gap-3">
@@ -174,8 +159,8 @@ export default function LaboratoryDashboard() {
                         AL
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">Laboratory</h1>
-                        <p className="text-xs text-slate-500">Analyze and manage raw material samples</p>
+                        <h1 className="text-lg font-bold text-slate-900">Laboratory QC</h1>
+                        <p className="text-xs text-slate-500">Analyze and manage RM, FP, and Citerne quarantines</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -183,73 +168,23 @@ export default function LaboratoryDashboard() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search batch, sample, material..."
+                            placeholder="Search lot ID, gas..."
                             className="h-10 w-72 rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm focus:bg-white focus:border-blue-600 focus:outline-none"
                         />
                     </div>
-                    <button className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
-                        <FileText className="h-5 w-5" />
-                        <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                            8
-                        </span>
-                    </button>
                     <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                         <div className="text-right">
-                            <div className="text-sm font-semibold text-slate-900">Admin</div>
-                            <div className="text-xs text-slate-500">Super Administrator</div>
+                            <div className="text-sm font-semibold text-slate-900">Lab Team</div>
+                            <div className="text-xs text-slate-500">Quality Control</div>
                         </div>
                         <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 grid place-items-center font-bold">
-                            A
+                            L
                         </div>
                     </div>
                 </div>
             </header>
 
             <div className="flex">
-                {/* Sidebar */}
-                <aside className="w-64 bg-white border-r border-slate-200 min-h-[calc(100vh-64px)] p-4">
-                    <nav className="space-y-1">
-                        {[
-                            { icon: FileText, label: "Dashboard", active: false },
-                            { icon: FileText, label: "Raw Materials", active: false },
-                            { icon: FlaskConical, label: "Laboratory", active: true },
-                            { icon: FileText, label: "Production", active: false },
-                            { icon: Droplets, label: "Filling", active: false },
-                            { icon: FileText, label: "Warehouse", active: false },
-                            { icon: FileText, label: "Distribution", active: false },
-                            { icon: FileText, label: "Reports", active: false },
-                            { icon: User, label: "Users", active: false },
-                            { icon: FileText, label: "Settings", active: false },
-                        ].map((item) => (
-                            <button
-                                key={item.label}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${item.active
-                                    ? "bg-blue-50 text-blue-700"
-                                    : "text-slate-600 hover:bg-slate-100"
-                                    }`}
-                            >
-                                <item.icon className="w-5 h-5" />
-                                {item.label}
-                            </button>
-                        ))}
-                    </nav>
-
-                    <div className="mt-8 p-4 rounded-xl bg-blue-50 border border-blue-100">
-                        <div className="flex items-start gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                <Beaker className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-semibold text-slate-900">Quality is our priority</h3>
-                                <p className="text-xs text-slate-600 mt-1">Every analysis ensures safety and reliability</p>
-                            </div>
-                        </div>
-                        <button className="w-full mt-3 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50">
-                            View Quality Policy
-                        </button>
-                    </div>
-                </aside>
-
                 {/* Main Content */}
                 <main className="flex-1 p-6">
                     {/* Action Buttons */}
@@ -258,50 +193,43 @@ export default function LaboratoryDashboard() {
                         <div className="flex items-center gap-3">
                             <button className="flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
                                 <Download className="h-4 w-4" />
-                                Export Report
-                            </button>
-                            <button className="flex items-center gap-2 h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
-                                <Plus className="h-4 w-4" />
-                                New Analysis
+                                Export QC Report
                             </button>
                         </div>
                     </div>
 
                     {/* KPI Cards */}
-                    <div className="grid grid-cols-5 gap-4 mb-6">
+                    <div className="grid grid-cols-4 gap-4 mb-6">
                         <div className="bg-white rounded-xl border border-slate-200 p-4">
                             <div className="flex items-start gap-3">
                                 <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                                    <FlaskConical className="h-5 w-5 text-blue-600" />
+                                    <Package className="h-5 w-5 text-blue-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs text-slate-600">Samples Received</div>
-                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.received}</div>
-                                    <div className="text-xs text-blue-600 mt-2 font-semibold">today</div>
+                                    <div className="text-xs text-slate-600">RM in Quarantine</div>
+                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.rmQuarantine}</div>
                                 </div>
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4">
                             <div className="flex items-start gap-3">
-                                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                                    <Hourglass className="h-5 w-5 text-amber-600" />
+                                <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                                    <Droplets className="h-5 w-5 text-purple-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs text-slate-600">Pending Analysis</div>
-                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.pending}</div>
-                                    <div className="text-xs text-amber-600 mt-2 font-semibold">awaiting</div>
+                                    <div className="text-xs text-slate-600">FP in Quarantine</div>
+                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.fpQuarantine}</div>
                                 </div>
                             </div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-4">
                             <div className="flex items-start gap-3">
-                                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center">
+                                    <Warehouse className="h-5 w-5 text-orange-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs text-slate-600">Approved</div>
-                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.approved}</div>
-                                    <div className="text-xs text-emerald-600 mt-2 font-semibold">today</div>
+                                    <div className="text-xs text-slate-600">O₂ Citerne QC</div>
+                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.citerneQC}</div>
                                 </div>
                             </div>
                         </div>
@@ -311,30 +239,17 @@ export default function LaboratoryDashboard() {
                                     <XCircle className="h-5 w-5 text-red-600" />
                                 </div>
                                 <div>
-                                    <div className="text-xs text-slate-600">Rejected</div>
+                                    <div className="text-xs text-slate-600">Rejected Batches</div>
                                     <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.rejected}</div>
-                                    <div className="text-xs text-red-600 mt-2 font-semibold">today</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl border border-slate-200 p-4">
-                            <div className="flex items-start gap-3">
-                                <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                                    <Clock className="h-5 w-5 text-purple-600" />
-                                </div>
-                                <div>
-                                    <div className="text-xs text-slate-600">Avg. Analysis Time</div>
-                                    <div className="text-2xl font-bold text-slate-900 mt-0.5">{kpis.avgTime} min</div>
-                                    <div className="text-xs text-purple-600 mt-2 font-semibold">this month</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Tabs */}
+                    {/* Tabs & Filters */}
                     <div className="bg-white rounded-xl border border-slate-200 mb-4">
                         <div className="flex items-center gap-6 px-6 border-b border-slate-200">
-                            {["All Samples", "Pending", "In Analysis", "Completed", "Approved", "Rejected"].map((tab) => (
+                            {["All Samples", "RM Quarantine", "FP Quarantine", "Citerne QC", "Rejected"].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -348,49 +263,19 @@ export default function LaboratoryDashboard() {
                             ))}
                         </div>
 
-                        {/* Filters */}
                         <div className="p-4 flex items-center gap-3 flex-wrap">
                             <div className="flex-1 min-w-[260px]">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     <input
                                         type="text"
-                                        placeholder="Search by batch no., material..."
+                                        placeholder="Search by lot ID, gas..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm focus:border-blue-600 focus:outline-none"
                                     />
                                 </div>
                             </div>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-600 focus:outline-none"
-                            >
-                                <option>All Status</option>
-                                <option>Pending</option>
-                                <option>In Analysis</option>
-                                <option>Approved</option>
-                                <option>Rejected</option>
-                            </select>
-                            <select
-                                value={typeFilter}
-                                onChange={(e) => setTypeFilter(e.target.value)}
-                                className="h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-600 focus:outline-none"
-                            >
-                                <option>All Types</option>
-                                <option>Gas</option>
-                                <option>Liquid</option>
-                                <option>Solid</option>
-                            </select>
-                            <div className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm">
-                                <Calendar className="h-4 w-4 text-slate-400" />
-                                <span>May 1 - May 28, 2025</span>
-                            </div>
-                            <button className="flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                <Filter className="h-4 w-4" />
-                                Filter
-                            </button>
                         </div>
                     </div>
 
@@ -400,67 +285,74 @@ export default function LaboratoryDashboard() {
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-semibold">
                                     <tr>
-                                        <th className="px-6 py-4">Sample ID</th>
-                                        <th className="px-6 py-4">Batch / Lot No.</th>
-                                        <th className="px-6 py-4">Material Name</th>
-                                        <th className="px-6 py-4">Material Type</th>
+                                        <th className="px-6 py-4">Lot ID</th>
+                                        <th className="px-6 py-4">Gas Type</th>
+                                        <th className="px-6 py-4">Batch Type</th>
                                         <th className="px-6 py-4">Received Date</th>
                                         <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4">Analysis Progress</th>
-                                        <th className="px-6 py-4">Actions</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {paginatedSamples.map((sample) => (
-                                        <tr key={sample.id} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900">
-                                                {sample.id}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-700">{sample.batchId}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-700">{sample.material}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{sample.type}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{sample.receivedDate}</td>
-                                            <td className="px-6 py-4">
-                                                <span
-                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${sample.status === "Approved"
-                                                        ? "bg-emerald-50 text-emerald-700"
-                                                        : sample.status === "Rejected"
-                                                            ? "bg-red-50 text-red-700"
-                                                            : sample.status === "In Analysis"
-                                                                ? "bg-blue-50 text-blue-700"
-                                                                : "bg-amber-50 text-amber-700"
-                                                        }`}
-                                                >
-                                                    {sample.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full ${sample.progress === 100 ? "bg-emerald-500" : "bg-blue-600"
-                                                                }`}
-                                                            style={{ width: `${sample.progress}%` }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xs text-slate-600 w-8">{sample.progress}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleViewDetails(sample)}
-                                                        className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </button>
-                                                    <button className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
-                                                        <MoreVertical className="h-4 w-4" />
-                                                    </button>
-                                                </div>
+                                    {paginatedSamples.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                                No samples found for this category.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        paginatedSamples.map((sample) => {
+                                            const badge = getStatusBadge(sample);
+                                            return (
+                                                <tr key={sample._id} className="hover:bg-slate-50/60 transition-colors">
+                                                    <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900">
+                                                        {sample.lotId}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-700">{sample.gasId}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                            {getTypeIcon(sample.party)}
+                                                            {getTypeLabel(sample.party)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                                        {new Date(sample.date).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${badge.class}`}>
+                                                            {badge.text}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            {sample.status === "pending" && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleApprove(sample)}
+                                                                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700"
+                                                                    >
+                                                                        <CheckCircle2 className="h-3 w-3" /> Conforme
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleReject(sample)}
+                                                                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700"
+                                                                    >
+                                                                        <XCircle className="h-3 w-3" /> Reject
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleViewDetails(sample)}
+                                                                className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -468,12 +360,8 @@ export default function LaboratoryDashboard() {
                         {/* Pagination */}
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
                             <div className="text-sm text-slate-500">
-                                Showing <span className="font-medium text-slate-700">1</span> to{" "}
-                                <span className="font-medium text-slate-700">
-                                    {Math.min(itemsPerPage, filteredSamples.length)}
-                                </span>{" "}
-                                of <span className="font-medium text-slate-700">{filteredSamples.length}</span>{" "}
-                                entries
+                                Showing <span className="font-medium text-slate-700">{paginatedSamples.length}</span> of{" "}
+                                <span className="font-medium text-slate-700">{filteredSamples.length}</span> entries
                             </div>
                             <div className="flex items-center gap-1">
                                 <button
@@ -487,17 +375,14 @@ export default function LaboratoryDashboard() {
                                     <button
                                         key={page}
                                         onClick={() => setCurrentPage(page)}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-md text-sm font-medium ${currentPage === page
-                                            ? "bg-blue-600 text-white"
-                                            : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                            }`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-md text-sm font-medium ${currentPage === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                                     >
                                         {page}
                                     </button>
                                 ))}
                                 <button
                                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage === totalPages || totalPages === 0}
                                     className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <ChevronRight className="h-4 w-4" />
@@ -511,7 +396,7 @@ export default function LaboratoryDashboard() {
                 {showDetailsPanel && selectedSample && (
                     <aside className="w-96 bg-white border-l border-slate-200 p-6 overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-base font-semibold text-slate-900">Sample Details</h2>
+                            <h2 className="text-base font-semibold text-slate-900">QC Analysis Details</h2>
                             <button
                                 onClick={() => setShowDetailsPanel(false)}
                                 className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
@@ -521,129 +406,103 @@ export default function LaboratoryDashboard() {
                         </div>
 
                         <div className="mb-6">
-                            <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${selectedSample.status === "Approved"
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : selectedSample.status === "Rejected"
-                                        ? "bg-red-50 text-red-700"
-                                        : "bg-blue-50 text-blue-700"
-                                    }`}
-                            >
-                                {selectedSample.status === "In Analysis" ? "In Analysis" : selectedSample.status}
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset ${getStatusBadge(selectedSample).class}`}>
+                                {getStatusBadge(selectedSample).text}
                             </span>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Sample ID</div>
-                                <div className="text-sm font-bold text-slate-900 font-mono">{selectedSample.id}</div>
+                                <div className="text-xs font-medium text-slate-500 mb-1">Lot ID</div>
+                                <div className="text-sm font-bold text-slate-900 font-mono">{selectedSample.lotId}</div>
                             </div>
                             <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Batch / Lot No.</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.batchId}</div>
+                                <div className="text-xs font-medium text-slate-500 mb-1">Gas Type</div>
+                                <div className="text-sm font-medium text-slate-900">{selectedSample.gasId}</div>
                             </div>
                             <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Material Name</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.material}</div>
+                                <div className="text-xs font-medium text-slate-500 mb-1">Batch Type</div>
+                                <div className="text-sm font-medium text-slate-900">{getTypeLabel(selectedSample.party)}</div>
                             </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Material Type</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.type}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Supplier</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.supplier}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Received Date</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.receivedDate}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Quantity Received</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.quantity} kg</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Analyst</div>
-                                <div className="text-sm font-medium text-slate-900">{selectedSample.analyst}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-1">Analysis Started</div>
-                                <div className="text-sm font-medium text-slate-900">May 28, 2025 10:00 AM</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-medium text-slate-500 mb-3">Tests in Progress</div>
-                                <div className="space-y-2">
+                            {selectedSample.equipe && (
+                                <div>
+                                    <div className="text-xs font-medium text-slate-500 mb-1">Production Equipe</div>
+                                    <div className="text-sm font-medium text-slate-900">{selectedSample.equipe}</div>
+                                </div>
+                            )}
+                            {selectedSample.citerneType && (
+                                <div>
+                                    <div className="text-xs font-medium text-slate-500 mb-1">Citerne Type</div>
+                                    <div className="text-sm font-medium text-slate-900">{selectedSample.citerneType}</div>
+                                </div>
+                            )}
+
+                            <div className="pt-4 border-t border-slate-200">
+                                <div className="text-xs font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                    Required Analysis Limits (Ph. Eur.)
+                                </div>
+                                <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                            Purity
-                                        </span>
-                                        <span className="text-emerald-600 text-xs">✓</span>
+                                        <span className="text-slate-700">Purity Assay</span>
+                                        <span className="text-slate-900 font-medium">≥ 99.5%</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                            Moisture
-                                        </span>
-                                        <span className="text-emerald-600 text-xs">✓</span>
+                                        <span className="text-slate-700">Moisture (H₂O)</span>
+                                        <span className="text-slate-900 font-medium">≤ 67 ppm</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700">
-                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                            Oil Content
-                                        </span>
-                                        <span className="text-blue-600 text-xs">In Progress</span>
+                                        <span className="text-slate-700">Carbon Monoxide (CO)</span>
+                                        <span className="text-slate-900 font-medium">≤ 5 ppm</span>
                                     </div>
                                     <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700">
-                                            <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                                            Impurities
-                                        </span>
-                                        <span className="text-slate-500 text-xs">Pending</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="flex items-center gap-2 text-slate-700">
-                                            <div className="w-2 h-2 rounded-full bg-slate-300"></div>
-                                            Odor
-                                        </span>
-                                        <span className="text-slate-500 text-xs">Pending</span>
+                                        <span className="text-slate-700">Carbon Dioxide (CO₂)</span>
+                                        <span className="text-slate-900 font-medium">≤ 300 ppm</span>
                                     </div>
                                 </div>
                             </div>
+
+                            {selectedSample.labResults && (
+                                <div className="pt-4 border-t border-slate-200">
+                                    <div className="text-xs font-semibold text-slate-900 mb-3">Recorded Lab Results</div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-sm"><span className="text-slate-600">Purity:</span><span className="font-medium">{selectedSample.labResults.purity?.toFixed(2)}%</span></div>
+                                        <div className="flex justify-between text-sm"><span className="text-slate-600">H₂O:</span><span className="font-medium">{selectedSample.labResults.h2o?.toFixed(1)} ppm</span></div>
+                                        <div className="flex justify-between text-sm"><span className="text-slate-600">CO:</span><span className="font-medium">{selectedSample.labResults.co?.toFixed(1)} ppm</span></div>
+                                        <div className="flex justify-between text-sm"><span className="text-slate-600">CO₂:</span><span className="font-medium">{selectedSample.labResults.co2?.toFixed(1)} ppm</span></div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {selectedSample.status === "In Analysis" && (
-                            <div className="mt-6 flex gap-3">
+                        {selectedSample.status === "pending" && (
+                            <div className="mt-6 flex gap-3 sticky bottom-0 bg-white pt-4 border-t border-slate-100">
                                 <button
-                                    onClick={() => handleApprove(selectedSample.id)}
-                                    className="flex-1 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                                    onClick={() => handleApprove(selectedSample)}
+                                    className="flex-1 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 flex items-center justify-center gap-2"
                                 >
-                                    Approve
+                                    <CheckCircle2 className="h-4 w-4" /> Confirm (Conforme)
                                 </button>
                                 <button
-                                    onClick={() => handleReject(selectedSample.id)}
-                                    className="flex-1 h-10 rounded-lg border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-50"
+                                    onClick={() => handleReject(selectedSample)}
+                                    className="flex-1 h-10 rounded-lg border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-50 flex items-center justify-center gap-2"
                                 >
-                                    Reject
+                                    <XCircle className="h-4 w-4" /> Reject
                                 </button>
                             </div>
                         )}
-
-                        <button className="w-full mt-4 h-10 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
-                            View Full Analysis
-                        </button>
                     </aside>
                 )}
             </div>
 
             {/* Bottom User Profile */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between z-30">
                 <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 grid place-items-center font-bold text-xs">
-                        FZ
+                        QC
                     </div>
                     <div>
-                        <div className="text-sm font-semibold text-slate-900">Fatima Zahra</div>
+                        <div className="text-sm font-semibold text-slate-900">Quality Control Team</div>
                         <div className="text-xs text-slate-500">Laboratory Analyst</div>
                     </div>
                 </div>

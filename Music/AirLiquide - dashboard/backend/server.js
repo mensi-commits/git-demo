@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const app = express();
-app.use(cors({ origin: "http://localhost:5173", credentials: true })); // Allow your React frontend
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 
 // ==========================================
@@ -21,7 +21,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
 // ==========================================
-// 2. DATABASE MODELS
+// 2. DATABASE MODELS (UPDATED SCHEMA)
 // ==========================================
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -38,10 +38,13 @@ const User = mongoose.model("User", UserSchema);
 const BatchSchema = new mongoose.Schema({
   lotId: { type: String, required: true, unique: true },
   gasId: { type: String, required: true },
+  type: { type: String, enum: ["RM", "FP", "CITERNE"], default: "RM" }, // NEW: Tracks Raw Material vs Final Product
   party: { type: String, required: true },
   status: { type: String, required: true },
   quantity: String,
   supplier: String,
+  equipe: String, // NEW: Tracks production team
+  citerneType: String, // NEW: Tracks 3C, 4C, 7C for O2
   client: { type: String, default: "Internal" },
   date: { type: Date, default: Date.now },
   labResults: { purity: Number, co: Number, co2: Number, h2o: Number },
@@ -56,7 +59,7 @@ const BatchSchema = new mongoose.Schema({
 const Batch = mongoose.model("Batch", BatchSchema);
 
 // ==========================================
-// 3. AUTO-SEED DEFAULT USERS (So you can login immediately)
+// 3. AUTO-SEED DEFAULT USERS
 // ==========================================
 const seedUsers = async () => {
   const count = await User.countDocuments();
@@ -94,40 +97,33 @@ const seedUsers = async () => {
 seedUsers();
 
 // ==========================================
-// 4. MIDDLEWARE (Auth & Roles)
+// 4. MIDDLEWARE
 // ==========================================
 const authenticate = (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Access denied" });
-
   try {
-    const verified = jwt.verify(
+    req.user = jwt.verify(
       token,
       process.env.JWT_SECRET || "super_secret_internship_key",
     );
-    req.user = verified;
     next();
   } catch (err) {
     res.status(400).json({ error: "Invalid token" });
   }
 };
 
-const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res
-        .status(403)
-        .json({ error: "Forbidden: You do not have permission" });
-    }
+const authorize =
+  (...roles) =>
+  (req, res, next) => {
+    if (!roles.includes(req.user.role))
+      return res.status(403).json({ error: "Forbidden" });
     next();
   };
-};
 
 // ==========================================
 // 5. API ROUTES
 // ==========================================
-
-// --- AUTH ROUTES ---
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -147,7 +143,6 @@ app.post("/api/auth/login", async (req, res) => {
       process.env.JWT_SECRET || "super_secret_internship_key",
       { expiresIn: "24h" },
     );
-
     res.json({
       token,
       user: {
@@ -161,14 +156,12 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// --- BATCH ROUTES ---
 app.get("/api/batches", authenticate, async (req, res) => {
   try {
     const { gasId, party } = req.query;
     const filter = {};
-    if (gasId) filter.gasId = gasId;
+    if (gasId && gasId !== "all") filter.gasId = gasId;
     if (party) filter.party = party;
-
     const batches = await Batch.find(filter).sort({ date: -1 });
     res.json(batches);
   } catch (err) {
@@ -184,8 +177,8 @@ app.post(
     try {
       const newBatch = new Batch({
         ...req.body,
-        party: "logistics",
-        status: "received",
+        party: req.body.party || "logistics",
+        status: req.body.status || "received",
         history: [{ action: "Created", performedBy: req.user.fullName }],
       });
       await newBatch.save();
@@ -196,20 +189,23 @@ app.post(
   },
 );
 
-// Move batch to next step
+// UPDATED: Move batch & apply any extra fields (like equipe, type)
 app.patch("/api/batches/:id/move", authenticate, async (req, res) => {
   try {
-    const { nextParty, newStatus } = req.body;
+    const { nextParty, newStatus, ...updates } = req.body;
     const batch = await Batch.findOne({ lotId: req.params.id });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    batch.party = nextParty;
-    batch.status = newStatus || "pending";
+    if (nextParty) batch.party = nextParty;
+    if (newStatus) batch.status = newStatus;
+
+    // Merge additional updates dynamically
+    Object.assign(batch, updates);
+
     batch.history.push({
-      action: `Moved to ${nextParty}`,
+      action: nextParty ? `Moved to ${nextParty}` : "Updated",
       performedBy: req.user.fullName,
     });
-
     await batch.save();
     res.json(batch);
   } catch (err) {
@@ -217,7 +213,49 @@ app.patch("/api/batches/:id/move", authenticate, async (req, res) => {
   }
 });
 
-// Submit Lab Results
+// NEW: Produce FP Lot from RM Lot
+app.post(
+  "/api/batches/produce",
+  authenticate,
+  authorize("admin", "production"),
+  async (req, res) => {
+    try {
+      const { rmLotId, fpLotId, gasId, equipe, quantity } = req.body;
+
+      const rmBatch = await Batch.findOne({ lotId: rmLotId });
+      if (rmBatch) {
+        rmBatch.status = "processed";
+        rmBatch.history.push({
+          action: "Processed into FP",
+          performedBy: req.user.fullName,
+        });
+        await rmBatch.save();
+      }
+
+      const newFP = new Batch({
+        lotId: fpLotId,
+        gasId,
+        type: "FP",
+        party: "fp_lab",
+        status: "pending",
+        equipe,
+        quantity,
+        date: new Date(),
+        history: [
+          {
+            action: `Produced from RM ${rmLotId}`,
+            performedBy: req.user.fullName,
+          },
+        ],
+      });
+      await newFP.save();
+      res.status(201).json(newFP);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+);
+
 app.patch(
   "/api/batches/:id/lab",
   authenticate,
@@ -234,7 +272,6 @@ app.patch(
         action: "Lab results submitted",
         performedBy: req.user.fullName,
       });
-
       await batch.save();
       res.json(batch);
     } catch (err) {
@@ -243,7 +280,6 @@ app.patch(
   },
 );
 
-// Reject Batch
 app.patch(
   "/api/batches/:id/reject",
   authenticate,
@@ -252,13 +288,11 @@ app.patch(
     try {
       const batch = await Batch.findOne({ lotId: req.params.id });
       if (!batch) return res.status(404).json({ error: "Batch not found" });
-
       batch.status = "rejected";
       batch.history.push({
         action: "Rejected and quarantined",
         performedBy: req.user.fullName,
       });
-
       await batch.save();
       res.json(batch);
     } catch (err) {
@@ -271,6 +305,6 @@ app.patch(
 // 6. START SERVER
 // ==========================================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`),
+);

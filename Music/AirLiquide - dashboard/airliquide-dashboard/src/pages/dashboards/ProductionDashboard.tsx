@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    Cog, Search, Bell, ArrowRight, CheckCircle2, Factory, Users, FileText,
+    Cog, Search, Bell, ArrowRight, CheckCircle2, Factory, Users, FileText, FlaskConical, Package, Droplets
 } from "lucide-react";
 
 export default function ProductionDashboard() {
@@ -9,6 +9,7 @@ export default function ProductionDashboard() {
     const [batches, setBatches] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [equipeSelections, setEquipeSelections] = useState<Record<string, string>>({});
 
     useEffect(() => {
         fetchBatches();
@@ -18,11 +19,22 @@ export default function ProductionDashboard() {
         setIsLoading(true);
         const token = localStorage.getItem("token");
         try {
+            // Fetch only RM batches that have been approved by RM Lab and are waiting in production
             const res = await fetch("http://localhost:5000/api/batches?party=production", {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
-                setBatches(await res.json());
+                const data = await res.json();
+                setBatches(data);
+
+                // Initialize equipe selections for new batches
+                const selections: Record<string, string> = { ...equipeSelections };
+                data.forEach((b: any) => {
+                    if (!selections[b.lotId]) {
+                        selections[b.lotId] = "Equipe A";
+                    }
+                });
+                setEquipeSelections(selections);
             } else if (res.status === 401) {
                 localStorage.clear();
                 navigate("/login");
@@ -34,22 +46,47 @@ export default function ProductionDashboard() {
         }
     };
 
-    const completeProduction = async (lotId: string) => {
+    const handleEquipeChange = (lotId: string, equipe: string) => {
+        setEquipeSelections(prev => ({ ...prev, [lotId]: equipe }));
+    };
+
+    const produceFPLot = async (rmBatch: any) => {
         const token = localStorage.getItem("token");
-        await fetch(`http://localhost:5000/api/batches/${lotId}/move`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ nextParty: "distribution", newStatus: "approved" }),
-        });
-        fetchBatches();
+        const equipe = equipeSelections[rmBatch.lotId] || "Equipe A";
+
+        // Generate FP Lot ID: RM Lot ID + "-01" 
+        // Example: O2-26-08-04-01 becomes O2-26-08-04-01-01
+        const fpLotId = `${rmBatch.lotId}-01`;
+
+        try {
+            const res = await fetch("http://localhost:5000/api/batches/produce", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    rmLotId: rmBatch.lotId,
+                    fpLotId: fpLotId,
+                    gasId: rmBatch.gasId,
+                    equipe: equipe,
+                    quantity: rmBatch.quantity
+                }),
+            });
+
+            if (res.ok) {
+                fetchBatches(); // Refresh list to remove the processed RM batch
+            } else {
+                console.error("Failed to produce FP lot");
+            }
+        } catch (err) {
+            console.error("Error producing FP lot", err);
+        }
     };
 
     const filteredBatches = batches.filter(batch =>
         batch.lotId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        batch.client.toLowerCase().includes(searchQuery.toLowerCase())
+        batch.gasId.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (isLoading) {
@@ -73,7 +110,7 @@ export default function ProductionDashboard() {
                     </div>
                     <div>
                         <h1 className="text-lg font-bold text-slate-900">Production Dashboard</h1>
-                        <p className="text-xs text-slate-500">Medical Device Manufacturing</p>
+                        <p className="text-xs text-slate-500">Raw Material to Final Product Conversion</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -81,7 +118,7 @@ export default function ProductionDashboard() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search batches..."
+                            placeholder="Search RM lots, gas..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-10 w-64 rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm focus:bg-white focus:border-blue-600 focus:outline-none"
@@ -89,9 +126,6 @@ export default function ProductionDashboard() {
                     </div>
                     <button className="relative grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
                         <Bell className="h-5 w-5" />
-                        <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                            5
-                        </span>
                     </button>
                     <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                         <div className="text-right">
@@ -111,48 +145,58 @@ export default function ProductionDashboard() {
                     <div className="bg-white rounded-xl border border-slate-200 p-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                                <Factory className="h-5 w-5 text-purple-600" />
+                                <Package className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
                                 <div className="text-2xl font-bold text-slate-900">{batches.length}</div>
-                                <div className="text-xs text-slate-600 mt-0.5">Active Batches</div>
+                                <div className="text-xs text-slate-600 mt-0.5">RM Ready for Production</div>
                             </div>
                         </div>
                     </div>
                     <div className="bg-white rounded-xl border border-slate-200 p-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                <Droplets className="h-5 w-5 text-emerald-600" />
                             </div>
                             <div>
-                                <div className="text-2xl font-bold text-slate-900">94.3%</div>
-                                <div className="text-xs text-slate-600 mt-0.5">Yield Rate</div>
+                                <div className="text-2xl font-bold text-slate-900">FP Lots</div>
+                                <div className="text-xs text-slate-600 mt-0.5">Conditionnement</div>
                             </div>
                         </div>
                     </div>
                     <div className="bg-white rounded-xl border border-slate-200 p-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                                <Cog className="h-5 w-5 text-blue-600" />
+                                <Users className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
                                 <div className="text-2xl font-bold text-slate-900">3</div>
-                                <div className="text-xs text-slate-600 mt-0.5">Active Lines</div>
+                                <div className="text-xs text-slate-600 mt-0.5">Active Equipes</div>
                             </div>
                         </div>
                     </div>
                     <div className="bg-white rounded-xl border border-slate-200 p-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                                <ArrowRight className="h-5 w-5 text-amber-600" />
+                                <FlaskConical className="h-5 w-5 text-amber-600" />
                             </div>
                             <div>
-                                <div className="text-2xl font-bold text-slate-900">
-                                    {batches.reduce((sum, b) => sum + parseInt(b.quantity?.replace(/[^0-9]/g, '') || "0"), 0)}
-                                </div>
-                                <div className="text-xs text-slate-600 mt-0.5">Total Output (kg)</div>
+                                <div className="text-2xl font-bold text-slate-900">FP Lab</div>
+                                <div className="text-xs text-slate-600 mt-0.5">Next Step: Quarantine</div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Info Banner */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                    <Cog className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                        <h3 className="text-sm font-semibold text-blue-900">Lot Generation Logic</h3>
+                        <p className="text-xs text-blue-700 mt-1">
+                            A new Final Product (FP) lot is created for each production run. The FP Lot ID is generated by appending the lot sequence to the RM Lot ID (e.g., <code className="bg-blue-100 px-1 rounded">O2-26-08-04-01-01</code>).
+                            Parameters: <strong>Raw Material + Day + Equipe</strong>. After production, the FP lot is automatically sent to FP Quarantine.
+                        </p>
                     </div>
                 </div>
 
@@ -162,38 +206,51 @@ export default function ProductionDashboard() {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-semibold">
                                 <tr>
-                                    <th className="px-6 py-4">Lot ID</th>
-                                    <th className="px-6 py-4">Client</th>
-                                    <th className="px-6 py-4">Quantity</th>
-                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4">RM Lot ID</th>
+                                    <th className="px-6 py-4">Gas Type</th>
+                                    <th className="px-6 py-4">Quantity (kg)</th>
+                                    <th className="px-6 py-4">Date</th>
+                                    <th className="px-6 py-4">Equipe</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredBatches.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                                            No batches in production.
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                            No approved raw materials waiting for production.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredBatches.map((batch) => (
                                         <tr key={batch._id} className="hover:bg-slate-50/60 transition-colors">
                                             <td className="px-6 py-4 font-mono font-bold text-slate-900">{batch.lotId}</td>
-                                            <td className="px-6 py-4 text-slate-700">{batch.client}</td>
-                                            <td className="px-6 py-4 font-medium text-slate-900">{batch.quantity} kg</td>
                                             <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                    Ready
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 text-xs font-semibold">
+                                                    {batch.gasId}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-slate-900">{batch.quantity}</td>
+                                            <td className="px-6 py-4 text-slate-600 text-sm">
+                                                {new Date(batch.date).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <select
+                                                    value={equipeSelections[batch.lotId] || "Equipe A"}
+                                                    onChange={(e) => handleEquipeChange(batch.lotId, e.target.value)}
+                                                    className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:border-blue-600 focus:outline-none"
+                                                >
+                                                    <option value="Equipe A">Equipe A</option>
+                                                    <option value="Equipe B">Equipe B</option>
+                                                    <option value="Equipe C">Equipe C</option>
+                                                </select>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <button
-                                                    onClick={() => completeProduction(batch.lotId)}
-                                                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                                                    onClick={() => produceFPLot(batch)}
+                                                    className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
                                                 >
-                                                    Complete & Distribute
+                                                    Produce FP Lot
                                                     <ArrowRight className="h-3 w-3" />
                                                 </button>
                                             </td>
